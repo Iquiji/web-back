@@ -11,7 +11,20 @@ use std::io::prelude::*;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::{Arc, Mutex};
+use std::fs::File;
+
 static COUNT: AtomicUsize = AtomicUsize::new(0);
+
+fn next_count(mutex_file:&Arc<Mutex<File>>) -> usize {
+    let wegwerf_count = COUNT.fetch_add(1, Relaxed);
+    let mut local = mutex_file.lock().unwrap();
+    local.seek(std::io::SeekFrom::Start(0)).unwrap();
+    local
+        .write_all(wegwerf_count.to_string().as_bytes())
+        .unwrap();
+    println!("Besucher: {:?} wurde beliefert", &wegwerf_count);
+    wegwerf_count
+}
 
 fn main() {
     let mut file = OpenOptions::new()
@@ -50,19 +63,17 @@ fn main() {
 
             match (req.method(), req.uri().path()) {
                 (&Method::GET, "/") => {
-                    let wegwerf_count = COUNT.fetch_add(1, Relaxed);
-                    let mut local = mutex_file.lock().unwrap();
-                    local.seek(std::io::SeekFrom::Start(0)).unwrap();
-                    local
-                        .write_all(wegwerf_count.to_string().as_bytes())
-                        .unwrap();
-                    println!("Besucher: {:?} wurde beliefert", &wegwerf_count);
+                    let wegwerf_count = next_count(&mutex_file);
                     let body = format!(
                         "sie sind der {:010}te idiot der diese Website besucht!",
                         wegwerf_count
                     );
                     *response.body_mut() = Body::from(body);
-                }
+                },
+                (&Method::GET, "/counter.js") => {
+                *response.body_mut() = Body::from(format!("function pageViewCount() {{ return {} }};",next_count(&mutex_file)));
+                println!("counter.js beliefert");
+                },
                 (&Method::POST, _) | (&Method::PUT, _) => {
                     *response.status_mut() = StatusCode::METHOD_NOT_ALLOWED;
                     return Either::B(
