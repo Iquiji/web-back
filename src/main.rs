@@ -1,3 +1,5 @@
+#![warn(clippy::all)]
+
 use futures::future;
 use futures::future::Either;
 use futures::stream::Stream;
