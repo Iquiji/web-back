@@ -16,6 +16,9 @@ use std::sync::{Arc, Mutex};
 use std::fs::File;
 static COUNT: AtomicUsize = AtomicUsize::new(0);
 
+// Können wir später gegen was anderes austauschen
+type ChatMessage = String;
+
 fn next_count(mutex_file:&Arc<Mutex<File>>) -> usize {
     let wegwerf_count = COUNT.fetch_add(1, Relaxed);
     let mut local = mutex_file.lock().unwrap();
@@ -97,8 +100,9 @@ fn main() {
                                 future::result(Ok::<_, hyper::Error>(sheet))
                             })
                             .map(move|sheet|{ 
+                                let message = serde_json::from_slice(&sheet).expect("War wohl kein JSON X-(");
                                 let mut local = chat.lock().unwrap();
-                                local.push(String::from_utf8_lossy(&sheet).to_string());
+                                local.push(message);
                                 response}).boxed();
                 },
                 (&Method::POST, _) | (&Method::PUT, _) => {
