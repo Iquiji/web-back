@@ -78,12 +78,16 @@ fn main() {
                 println!("counter.js beliefert");
                 },
                 (&Method::GET, "/chat") => {
-                    response.headers_mut().append(hyper::header::CONTENT_TYPE,hyper::header::HeaderValue::from_str("application/json;encoding=utf-8").unwrap());
+                    let headers = response.headers_mut();
+                    headers.append(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN , hyper::header::HeaderValue::from_str("*").unwrap());
+                    headers.append(hyper::header::CONTENT_TYPE,hyper::header::HeaderValue::from_str("application/json;encoding=utf-8").unwrap());
                     let local = chat.lock().unwrap();
                     *response.body_mut() = Body::from(serde_json::to_string(&*local).unwrap());
                     println!("someone catched da chat")
                 },
                 (&Method::POST, "/chat") => {
+                    let headers = response.headers_mut();
+                    headers.append(hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN , hyper::header::HeaderValue::from_str("*").unwrap());
                     let sheet = Vec::<u8>::new();
                     let chat = chat.clone();
                     return
