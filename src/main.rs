@@ -14,7 +14,6 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::{Arc, Mutex};
 use std::fs::File;
-
 static COUNT: AtomicUsize = AtomicUsize::new(0);
 
 fn next_count(mutex_file:&Arc<Mutex<File>>) -> usize {
@@ -45,9 +44,11 @@ fn main() {
         .parse()
         .expect("valid u16 port number");
     let addr = ([0, 0, 0, 0], port).into();
-
+    let chat_vec = vec!("Meow!".to_string(),"Meow?".to_string());
+    let chat = Arc::new(Mutex::new(chat_vec));
     let new_svc = make_service_fn(move |addr_stream: &AddrStream| {
         let mutex_file = mutex_file.clone();
+        let chat = chat.clone();
         let remote_addr = addr_stream.remote_addr();
 
         service_fn(move |req: Request<Body>| {
@@ -76,23 +77,42 @@ fn main() {
                 *response.body_mut() = Body::from(format!("function pageViewCount() {{ return {} }};",next_count(&mutex_file)));
                 println!("counter.js beliefert");
                 },
+                (&Method::GET, "/chat") => {
+                    response.headers_mut().append(hyper::header::CONTENT_TYPE,hyper::header::HeaderValue::from_str("application/json;encoding=utf-8").unwrap());
+                    let local = chat.lock().unwrap();
+                    *response.body_mut() = Body::from(serde_json::to_string(&*local).unwrap());
+                    println!("someone catched da chat")
+                },
+                (&Method::POST, "/chat") => {
+                    let sheet = Vec::<u8>::new();
+                    let chat = chat.clone();
+                    return
+                        req.into_body()
+                            .fold(sheet,move|mut sheet,chunk| {
+                                sheet.extend_from_slice(chunk.as_ref());
+                                future::result(Ok::<_, hyper::Error>(sheet))
+                            })
+                            .map(move|sheet|{ 
+                                let mut local = chat.lock().unwrap();
+                                local.push(String::from_utf8_lossy(&sheet).to_string());
+                                response}).boxed();
+                },
                 (&Method::POST, _) | (&Method::PUT, _) => {
                     *response.status_mut() = StatusCode::METHOD_NOT_ALLOWED;
-                    return Either::B(
+                    return 
                         req.into_body()
                             .for_each(|chunk| {
                                 println!("Got chunk {:?}", chunk);
                                 future::ok(())
                             })
-                            .map(|()| response),
-                    );
+                           .map(|()| response).boxed();
                 }
                 _ => {
                     *response.status_mut() = StatusCode::NOT_FOUND;
                 }
             };
 
-            Either::A(future::result(Ok::<_, hyper::Error>(response)))
+            future::result(Ok::<_, hyper::Error>(response)).boxed()
         })
     });
 
