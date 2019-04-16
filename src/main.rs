@@ -17,6 +17,7 @@ use std::fs::File;
 use std::time::{Duration, SystemTime};
 use serde_json::Result;
 use serde::{Deserialize, Serialize};
+use chrono::prelude::*;
 static COUNT: AtomicUsize = AtomicUsize::new(0);
 
 // Können wir später gegen was anderes austauschen
@@ -26,7 +27,7 @@ type ChatMessageType = String;
 struct ChatMessage {
     username: String,
     msg: String,
-    timestamp:  std::time::SystemTime,
+    timestamp:  String,
 }
 
 fn next_count(mutex_file:&Arc<Mutex<File>>) -> usize {
@@ -38,6 +39,10 @@ fn next_count(mutex_file:&Arc<Mutex<File>>) -> usize {
         .unwrap();
     println!("Besucher: {:?} wurde beliefert", &wegwerf_count);
     wegwerf_count
+}
+fn get_time() -> String {
+    let utc: DateTime<Utc> = Utc::now();
+    return utc.format("%Y-%m-%d %H:%M:%S").to_string()     
 }
 
 fn main() {
@@ -60,11 +65,11 @@ fn main() {
     let chat_vec: Vec<ChatMessage> = vec!(ChatMessage{
             username: "tester".to_string(),
             msg:"Meow!".to_string(),
-            timestamp: SystemTime::now(),
+            timestamp: get_time(),
         },ChatMessage{
             username: "tester2".to_string(),
             msg: "Meow?".to_string(),
-            timestamp: SystemTime::now(),
+            timestamp: get_time(),
         });
     let chat = Arc::new(Mutex::new(chat_vec));
     let new_svc = make_service_fn(move |addr_stream: &AddrStream| {
