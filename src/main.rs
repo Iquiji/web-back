@@ -123,8 +123,9 @@ fn main() {
                                 future::result(Ok::<_, hyper::Error>(sheet))
                             })
                             .map(move|sheet|{ 
-                                let message = serde_json::from_slice(&sheet).expect("War wohl kein JSON X-(");
+                                let mut message: ChatMessage = serde_json::from_slice(&sheet).expect("War wohl kein JSON X-(");
                                 let mut local = chat.lock().unwrap();
+                                message.timestamp = get_time();
                                 local.push(message);
                                 response}).boxed();
                 },
