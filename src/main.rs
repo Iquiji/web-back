@@ -14,10 +14,20 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::{Arc, Mutex};
 use std::fs::File;
+use std::time::{Duration, SystemTime};
+use serde_json::Result;
+use serde::{Deserialize, Serialize};
 static COUNT: AtomicUsize = AtomicUsize::new(0);
 
 // Können wir später gegen was anderes austauschen
-type ChatMessage = String;
+type ChatMessageType = String;
+
+#[derive(Serialize,Deserialize)]
+struct ChatMessage {
+    username: String,
+    msg: String,
+    timestamp:  std::time::SystemTime,
+}
 
 fn next_count(mutex_file:&Arc<Mutex<File>>) -> usize {
     let wegwerf_count = COUNT.fetch_add(1, Relaxed);
@@ -47,7 +57,15 @@ fn main() {
         .parse()
         .expect("valid u16 port number");
     let addr = ([0, 0, 0, 0], port).into();
-    let chat_vec = vec!("Meow!".to_string(),"Meow?".to_string());
+    let chat_vec: Vec<ChatMessage> = vec!(ChatMessage{
+            username: "tester".to_string(),
+            msg:"Meow!".to_string(),
+            timestamp: SystemTime::now(),
+        },ChatMessage{
+            username: "tester2".to_string(),
+            msg: "Meow?".to_string(),
+            timestamp: SystemTime::now(),
+        });
     let chat = Arc::new(Mutex::new(chat_vec));
     let new_svc = make_service_fn(move |addr_stream: &AddrStream| {
         let mutex_file = mutex_file.clone();
